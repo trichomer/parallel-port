@@ -29,6 +29,7 @@ const fetchSalePrices = async (tokenId) => {
     try {
       const eventsUrl = `https://api.opensea.io/api/v2/events/chain/${chain}/contract/${parallelNftContractAddress}/nfts/${tokenId}`;
       const response = await axios.get(eventsUrl, { headers });
+      //console.log(response);
       const events = response.data.asset_events;
 
       if (events.length > 0 && events[0].payment && events[0].payment.quantity) {
@@ -52,6 +53,9 @@ const fetchSalePrices = async (tokenId) => {
 
 async function fetchCachedParasets() {
     try {
+        let totalValue = 0;
+        const parasetValues = {};
+
         const amounts = await parasetCachingContract.getPoolCacheAmounts(
             pids,
             Array(pids.length).fill(walletAddress)
@@ -61,16 +65,26 @@ async function fetchCachedParasets() {
             const amount = amounts[index];
             if (amount.gt(0)) {
               const paraset = parasets[index];
+              let parasetValue = 0;
+
               console.log(`${paraset.name} owned: ${amount.toString()}`);
               console.log(`tokenIds in ${paraset.name}: ${paraset.tokenIds.join(', ')}`);
 
               // Fetch sale price details for each tokenId in the owned paraset
               for (const tokenId of paraset.tokenIds) {
                 let {salePrice, currency} = await fetchSalePrices(tokenId);
-                //console.log(salePrice, currency);
+                if (salePrice && (currency === 'ETH' || currency === 'WETH')) {
+                  parasetValue += salePrice;
+                }
+
+                parasetValues[paraset.name] = parasetValue;
+                totalValue += parasetValue;
+                console.log(`${paraset.name} value: ${parasetValue} ETH`)
               }
             }
           }
+
+          console.log(`Total value of cached parasets: ${totalValue} ETH`);
 
     } catch (error) {
         console.error("Error fetching cached Parasets: ", error);
